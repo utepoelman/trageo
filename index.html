@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRAGEO - Complete</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --board-bg: #ffffff;
+            --red-line: #ff8787;
+            --blue-line: #74c0fc;
+            --p1-color: #1c7ed6; /* Blue */
+            --p2-color: #e03131; /* Red */
+            --safe-color: #e9ecef;
+            --card-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Top Bar */
+        #top-bar {
+            width: 100%;
+            height: 50px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        h1 { margin: 0; font-size: 1.4rem; color: #333; letter-spacing: 2px; }
+
+        /* Layout */
+        #game-layout {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: calc(100vh - 50px);
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Side Panels */
+        .player-panel {
+            width: 140px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 10px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 12px;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.0rem;
+            text-transform: uppercase;
+            text-align: center;
+            padding: 0 5px;
+            word-wrap: break-word;
+        }
+
+        /* Cards */
+        .hand-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            align-items: center;
+            padding-bottom: 20px;
+        }
+
+        .card {
+            width: 90px;
+            height: 125px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            padding: 4px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            position: relative;
+        }
+
+        .card:hover { transform: scale(1.05); z-index: 5; border-color: #999; }
+        
+        .card.selected { 
+            border-color: #228be6; 
+            background-color: #e7f5ff; 
+            transform: scale(1.1); 
+            z-index: 10; 
+            box-shadow: 0 0 10px rgba(34, 139, 230, 0.4);
+        }
+        
+        .card.disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .card-type { 
+            font-weight: bold; 
+            margin-bottom: 8px; 
+            font-size: 0.65rem; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            color: #888;
+        }
+        
+        .card-detail { 
+            font-size: 1.1rem; 
+            font-weight: bold; 
+            line-height: 1.3;
+        }
+
+        .card.red { border-top: 6px solid var(--red-line); color: var(--p2-color); }
+        .card.blue { border-top: 6px solid var(--blue-line); color: var(--p1-color); }
+        .card.neutral { border-top: 6px solid #868e96; color: #333; }
+
+        /* Board Area */
+        #board-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #status-display {
+            margin-bottom: 10px;
+            padding: 5px 20px;
+            border-radius: 15px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 200px;
+            transition: background-color 0.3s;
+        }
+
+        canvas {
+            background-color: var(--board-bg);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-radius: 4px;
+            cursor: crosshair;
+        }
+
+        .action-area {
+            margin-top: 15px;
+            height: 40px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #343a40;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #495057; }
+        
+        .btn.danger { background: #fa5252; }
+        .btn.danger:hover { background: #e03131; }
+        
+        .btn.confirm { background: #fcc419; color: #333; animation: pulse 1s infinite; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: none; /* Flex when active */
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Special sizing for Help Modal */
+        .modal-box.large {
+            width: 600px;
+            max-width: 90%;
+            height: 80vh;
+            text-align: left;
+            padding: 30px;
+        }
+
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-title { font-size: 2rem; font-weight: bold; margin-bottom: 10px; color: #333; letter-spacing: 2px; text-align: center;}
+        
+        /* Help Text Styling */
+        h3 { color: #1c7ed6; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 20px; }
+        p, ul { color: #444; line-height: 1.6; }
+        ul { padding-left: 20px; }
+        .legal-text { font-size: 0.85rem; color: #666; background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 30px; border: 1px solid #dee2e6;}
+        .legal-header { font-weight: bold; margin-bottom: 5px; color: #333; }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        
+        select {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .p1-label { color: var(--p1-color); font-weight: bold; text-align: left; margin-bottom: -10px; font-size: 0.9rem; }
+        .p2-label { color: var(--p2-color); font-weight: bold; text-align: left; margin-bottom: -10px; font-size: 0.9rem; }
+
+    </style>
+</head>
+<body>
+
+    <div id="start-modal" class="modal-overlay" style="display:flex;">
+        <div class="modal-box">
+            <div class="modal-title">TRAGEO</div>
+            
+            <div class="p1-label">Blue Player Name</div>
+            <input type="text" id="p1-name" value="Player 1" placeholder="Blue Name">
+            
+            <div class="p2-label">Red Player Name</div>
+            <input type="text" id="p2-name" value="Player 2" placeholder="Red Name">
+            
+            <select id="start-mode">
+                <option value="pvp">Player vs Player</option>
+                <option value="ai">Player vs Computer</option>
+            </select>
+            
+            <button class="btn" style="background: #228be6; margin-top:10px;" onclick="startGame()">START GAME</button>
+        </div>
+    </div>
+
+    <div id="help-modal" class="modal-overlay">
+        <div class="modal-box large">
+            <div class="modal-title">How to Play</div>
+            <div class="scroll-area">
+                <h3>Objective</h3>
+                <p>Move your shape from your starting corner to the diagonal opposite corner. The first player to land exactly on the target square wins.</p>
+                
+                <h3>Movement Cards</h3>
+                <ul>
+                    <li><strong>SLIDE:</strong> Move 1, 2, or 3 spaces. Blue cards move vertically in the direction of the arrow an the shape; Red cards move horizontally in the direction of the arrow on the shape.</li>
+                    <li><strong>TURN:</strong> Rotate your shape 90° clockwise or anti-clockwise.</li>
+                    <li><strong>FLIP:</strong> Reflect your shape. Blue cards flip your shape horizontally in the direction of the arrow on the shape. Red cards flip your shape vertically in the direction of the arrow on the shape.</li>
+                    <li><strong>FLIP & SLIDE:</strong> Flip your shape, then slide it.</li>
+                </ul>
+
+                <h3>Rules</h3>
+                <ul>
+                    <li><strong>Collision:</strong> If you land on the opponent's shape, they are sent back to their start (unless they are in the Safe Zone).</li>
+                    <li><strong>Safe Zone:</strong> The grey centre square is safe. You cannot be sent back while standing there. You cannot go there when it is occupied.</li>
+                    <li><strong>Confirming Moves:</strong> Click a card to preview. Click the card again (or the board) to confirm.</li>
+                    <li><strong>Stuck?</strong> Use the "Replace All" button to skip your turn and get a new hand.</li>
+                </ul>
+
+                <div class="legal-text">
+                    <div class="legal-header">Game Terms of Use</div>
+                    <p><strong>Ownership and Copyright:</strong> This game, including all code, assets, artwork, and sound, is the intellectual property of Ute Poelman. All rights are reserved.</p>
+                    <p><strong>License to Use:</strong> Subject to these terms, the author grants you a personal, non-exclusive, non-transferable license to access and play the game for your own private, non-commercial entertainment. <strong>Educational use is explicitly permitted:</strong> Teachers, schools, and educational institutions may use this game in classroom settings and share it with students for teaching purposes at no cost.</p>
+                    <p><strong>Restrictions:</strong> You are strictly prohibited from:</p>
+                    <ul>
+                        <li>Modifying the source code, assets, or logic of this game</li>
+                        <li>Redistributing or "mirroring" the game files on other websites without express written permission</li>
+                        <li>Selling or commercialising the game or any derivative works based upon it</li>
+                        <li>Removing any copyright notices or branding from the source code or game interface</li>
+                    </ul>
+                    <p><strong>Disclaimer:</strong> The game is provided "as is," without warranty of any kind. The author is not liable for any damages arising from the use of this software.</p>
+                </div>
+            </div>
+            <button class="btn" onclick="document.getElementById('help-modal').style.display='none'">Close</button>
+        </div>
+    </div>
+
+    <div id="end-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title" id="winner-text">BLUE WINS!</div>
+            <div style="font-size: 1.1rem; color:#666; margin-bottom: 20px;">The geometry was in your favour.</div>
+            <button class="btn" onclick="restartMatch()">NEW GAME</button>
+            <button class="btn" style="background: #868e96;" onclick="showStartScreen()">CHANGE SETUP</button>
+        </div>
+    </div>
+
+    <div id="top-bar">
+        <h1>TRAGEO</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" style="background: #228be6;" onclick="document.getElementById('help-modal').style.display='flex'">How to Play</button>
+            <button class="btn" onclick="showStartScreen()">Reset</button>
+        </div>
+    </div>
+
+    <div id="game-layout">
+        <div class="player-panel" style="border-left: 5px solid var(--p1-color);">
+            <div class="panel-title" id="p1-panel-name" style="color: var(--p1-color);">Blue</div>
+            <div id="hand-blue" class="hand-container"></div>
+        </div>
+
+        <div id="board-area">
+            <div id="status-display">Blue's Turn</div>
+            <canvas id="gameCanvas"></canvas>
+            <div class="action-area">
+                <button class="btn danger" id="swap-btn" onclick="handleSwapClick()">Replace All & Skip</button>
+            </div>
+        </div>
+
+        <div class="player-panel" style="border-right: 5px solid var(--p2-color);">
+            <div class="panel-title" id="p2-panel-name" style="color: var(--p2-color);">Red</div>
+            <div id="hand-red" class="hand-container"></div>
+        </div>
+    </div>
+
+<script>
+/**
+ * TRAGEO ENGINE - v9 (Complete with Terms)
+ */
+
+// --- Config ---
+const BOARD_SIZE = 11;
+const TILE_SIZE = 50; 
+const CANVAS_SIZE = BOARD_SIZE * TILE_SIZE;
+const SAFE_ZONE = { x: 5, y: 5 };
+
+const P1_START = { x: 0, y: BOARD_SIZE - 1 };
+const P1_TARGET = { x: BOARD_SIZE - 1, y: 0 };
+
+const P2_START = { x: BOARD_SIZE - 1, y: BOARD_SIZE - 1 };
+const P2_TARGET = { x: 0, y: 0 };
+
+const COLORS = {
+    RED: '#e03131',
+    BLUE: '#1c7ed6',
+    GRID_RED: '#ff8787',
+    GRID_BLUE: '#74c0fc',
+    HIGHLIGHT: 'rgba(255, 215, 0, 0.5)',
+    HIGHLIGHT_BORDER: '#fcc419'
+};
+
+// --- State ---
+let gameState = {
+    playerNames: { blue: "Player 1", red: "Player 2" },
+    players: [],
+    currentPlayer: 0, 
+    deck: [],
+    hands: [[], []],
+    selectedCardIdx: -1,
+    pendingMove: null, 
+    swapSelected: false,
+    gameOver: false,
+    mode: 'pvp'
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = CANVAS_SIZE;
+canvas.height = CANVAS_SIZE;
+
+// --- Setup & Menus ---
+
+function showStartScreen() {
+    document.getElementById('end-modal').style.display = 'none';
+    document.getElementById('start-modal').style.display = 'flex';
+}
+
+function startGame() {
+    let p1Name = document.getElementById('p1-name').value.trim() || "Player 1";
+    let p2Name = document.getElementById('p2-name').value.trim() || "Player 2";
+    const mode = document.getElementById('start-mode').value;
+
+    if (mode === 'ai') {
+        p2Name += " (AI)";
+    }
+
+    gameState.playerNames.blue = p1Name;
+    gameState.playerNames.red = p2Name;
+    gameState.mode = mode;
+
+    // Update Side Panels
+    document.getElementById('p1-panel-name').innerText = p1Name;
+    document.getElementById('p2-panel-name').innerText = p2Name;
+
+    document.getElementById('start-modal').style.display = 'none';
+    initGame();
+}
+
+function restartMatch() {
+    document.getElementById('end-modal').style.display = 'none';
+    initGame();
+}
+
+function initGame() {
+    gameState.deck = createDeck();
+    shuffle(gameState.deck);
+    gameState.hands = [[], []];
+    gameState.currentPlayer = 0;
+    gameState.selectedCardIdx = -1;
+    gameState.pendingMove = null;
+    gameState.swapSelected = false;
+    gameState.gameOver = false;
+
+    for(let i=0; i<4; i++) {
+        gameState.hands[0].push(drawCard());
+        gameState.hands[1].push(drawCard());
+    }
+
+    gameState.players = [
+        { 
+            color: 'blue', x: P1_START.x, y: P1_START.y, mirrored: false,
+            v1: {x:1, y:0}, v2: {x:0, y:-1} 
+        },
+        { 
+            color: 'red', x: P2_START.x, y: P2_START.y, mirrored: false,
+            v1: {x:-1, y:0}, v2: {x:0, y:-1}
+        }
+    ];
+
+    updateUI();
+    render();
+}
+
+function createDeck() {
+    const deck = [];
+    const colors = ['red', 'blue'];
+    
+    colors.forEach(c => {
+        for(let k=0; k<4; k++) deck.push({ type: 'slide', val: 1, color: c });
+        for(let k=0; k<3; k++) deck.push({ type: 'slide', val: 2, color: c });
+        for(let k=0; k<2; k++) deck.push({ type: 'slide', val: 3, color: c });
+    });
+
+    for(let k=0; k<5; k++) deck.push({ type: 'turn-cw', val: 90, color: 'neutral' });
+    for(let k=0; k<5; k++) deck.push({ type: 'turn-ccw', val: 90, color: 'neutral' });
+
+    colors.forEach(c => {
+        for(let k=0; k<3; k++) deck.push({ type: 'flip', color: c });
+    });
+
+    colors.forEach(c => {
+        deck.push({ type: 'flipslide', val: 1, color: c });
+        deck.push({ type: 'flipslide', val: 1, color: c });
+        deck.push({ type: 'flipslide', val: 2, color: c }); 
+    });
+    
+    return deck;
+}
+
+function drawCard() {
+    if (gameState.deck.length === 0) {
+        gameState.deck = createDeck();
+        shuffle(gameState.deck);
+    }
+    return gameState.deck.pop();
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+// --- Geometry Logic ---
+
+function rotVec(v, deg) {
+    if (deg === 90) return { x: -v.y, y: v.x };
+    if (deg === -90) return { x: v.y, y: -v.x };
+    return v;
+}
+
+function applyTransform(p, card) {
+    let np = JSON.parse(JSON.stringify(p)); 
+
+    if (card.type === 'turn-cw') {
+        np.v1 = rotVec(np.v1, 90);
+        np.v2 = rotVec(np.v2, 90);
+    } 
+    else if (card.type === 'turn-ccw') {
+        np.v1 = rotVec(np.v1, -90);
+        np.v2 = rotVec(np.v2, -90);
+    }
+    else if (card.type === 'flip') {
+        let moveDir = 0;
+        if (card.color === 'red') {
+            if (np.v1.y !== 0) moveDir = np.v1.y;
+            else if (np.v2.y !== 0) moveDir = np.v2.y;
+            np.y += moveDir;
+            np.v1.y = -np.v1.y;
+            np.v2.y = -np.v2.y;
+        } else {
+            if (np.v1.x !== 0) moveDir = np.v1.x;
+            else if (np.v2.x !== 0) moveDir = np.v2.x;
+            np.x += moveDir;
+            np.v1.x = -np.v1.x;
+            np.v2.x = -np.v2.x;
+        }
+        np.mirrored = !np.mirrored;
+    }
+    else if (card.type === 'slide') {
+        let moveVec = {x:0, y:0};
+        if (card.color === 'red') {
+            if (np.v1.x !== 0) moveVec.x = np.v1.x;
+            else if (np.v2.x !== 0) moveVec.x = np.v2.x;
+        } else {
+            if (np.v1.y !== 0) moveVec.y = np.v1.y;
+            else if (np.v2.y !== 0) moveVec.y = np.v2.y;
+        }
+        np.x += moveVec.x * card.val;
+        np.y += moveVec.y * card.val;
+    }
+    else if (card.type === 'flipslide') {
+        let tempFlipCard = { type: 'flip', color: card.color };
+        let tempP = applyTransform(p, tempFlipCard);
+        let tempSlideCard = { type: 'slide', val: card.val, color: card.color };
+        np = applyTransform(tempP, tempSlideCard);
+    }
+
+    return np;
+}
+
+// --- Interaction ---
+
+function selectCard(idx) {
+    if (gameState.gameOver) return;
+    
+    // Check if double clicking the same card to confirm
+    if (gameState.selectedCardIdx === idx && gameState.pendingMove) {
+        finishMove(gameState.pendingMove);
+        return;
+    }
+
+    // Reset swap button state if a card is selected
+    if (gameState.swapSelected) {
+        gameState.swapSelected = false;
+    }
+
+    gameState.selectedCardIdx = idx;
+    gameState.pendingMove = null;
+    updateUI();
+
+    const card = gameState.hands[gameState.currentPlayer][idx];
+    const player = gameState.players[gameState.currentPlayer];
+
+    const finalState = applyTransform(player, card);
+
+    let error = null;
+    if (finalState.x < 0 || finalState.x >= BOARD_SIZE || finalState.y < 0 || finalState.y >= BOARD_SIZE) {
+        error = "Move goes off board!";
+    }
+
+    if (!error) {
+        const opponent = gameState.players[(gameState.currentPlayer + 1) % 2];
+        const isSafe = (finalState.x === SAFE_ZONE.x && finalState.y === SAFE_ZONE.y);
+        const onOpponent = (finalState.x === opponent.x && finalState.y === opponent.y);
+        if (onOpponent && isSafe) error = "Safe Zone Occupied!";
+    }
+
+    if (error) {
+        setStatus(error, true);
+    } else {
+        setStatus("Click card again or board to confirm", false);
+        gameState.pendingMove = finalState;
+    }
+    
+    render();
+}
+
+function setStatus(msg, isError) {
+    const el = document.getElementById('status-display');
+    el.innerText = msg;
+    
+    if (!isError) {
+        el.style.backgroundColor = gameState.currentPlayer === 0 ? COLORS.BLUE : COLORS.RED;
+    } else {
+        el.style.backgroundColor = '#fa5252';
+    }
+}
+
+// Canvas Click
+canvas.addEventListener('mousedown', (e) => {
+    if (!gameState.pendingMove || gameState.gameOver) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const gx = Math.floor(x / TILE_SIZE);
+    const gy = Math.floor(y / TILE_SIZE);
+
+    if (gx === gameState.pendingMove.x && gy === gameState.pendingMove.y) {
+        finishMove(gameState.pendingMove);
+    } else {
+        // Deselect logic
+        gameState.pendingMove = null;
+        gameState.selectedCardIdx = -1;
+        updateUI();
+        render();
+    }
+});
+
+function finishMove(newState) {
+    const pIdx = gameState.currentPlayer;
+    
+    // Check Kick
+    const opponentIdx = (pIdx + 1) % 2;
+    const opponent = gameState.players[opponentIdx];
+    if (newState.x === opponent.x && newState.y === opponent.y) {
+        resetPlayer(opponentIdx);
+    }
+
+    // Update Player
+    gameState.players[pIdx] = newState;
+
+    // Check Win
+    if (checkWin(pIdx)) {
+        gameState.gameOver = true;
+        render();
+        setTimeout(showWinScreen, 500);
+        return;
+    }
+
+    // Cleanup
+    if (gameState.selectedCardIdx !== -1) {
+        gameState.hands[pIdx].splice(gameState.selectedCardIdx, 1);
+        gameState.hands[pIdx].push(drawCard());
+    }
+    
+    gameState.currentPlayer = (gameState.currentPlayer + 1) % 2;
+    gameState.selectedCardIdx = -1;
+    gameState.pendingMove = null;
+    gameState.swapSelected = false;
+    
+    updateUI();
+    render();
+
+    if (gameState.mode === 'ai' && gameState.currentPlayer === 1) {
+        setTimeout(aiTurn, 1000);
+    }
+}
+
+function handleSwapClick() {
+    if (gameState.gameOver) return;
+    if (gameState.mode === 'ai' && gameState.currentPlayer === 1) return;
+
+    const btn = document.getElementById('swap-btn');
+
+    if (!gameState.swapSelected) {
+        // First Click: Activation
+        gameState.swapSelected = true;
+        gameState.selectedCardIdx = -1;
+        gameState.pendingMove = null;
+        render();
+        updateUI();
+        setStatus("Click 'Confirm' to skip turn", false);
+    } else {
+        // Second Click: Execution
+        executeSwap();
+    }
+}
+
+function executeSwap() {
+    gameState.hands[gameState.currentPlayer] = [];
+    for(let i=0; i<4; i++) gameState.hands[gameState.currentPlayer].push(drawCard());
+    
+    gameState.swapSelected = false;
+    gameState.currentPlayer = (gameState.currentPlayer + 1) % 2;
+    gameState.selectedCardIdx = -1;
+    gameState.pendingMove = null;
+    
+    updateUI();
+    render();
+    
+    if (gameState.mode === 'ai' && gameState.currentPlayer === 1) setTimeout(aiTurn, 1000);
+}
+
+function showWinScreen() {
+    const winnerName = gameState.currentPlayer === 0 ? gameState.playerNames.blue : gameState.playerNames.red;
+    const winnerColor = gameState.currentPlayer === 0 ? COLORS.BLUE : COLORS.RED;
+    
+    const title = document.getElementById('winner-text');
+    title.innerText = winnerName.toUpperCase() + " WINS!";
+    title.style.color = winnerColor;
+    
+    document.getElementById('end-modal').style.display = 'flex';
+}
+
+// --- Render ---
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Grid
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= BOARD_SIZE; i++) {
+        ctx.strokeStyle = COLORS.GRID_RED;
+        ctx.beginPath(); ctx.moveTo(0, i * TILE_SIZE); ctx.lineTo(CANVAS_SIZE, i * TILE_SIZE); ctx.stroke();
+        
+        ctx.strokeStyle = COLORS.GRID_BLUE;
+        ctx.beginPath(); ctx.moveTo(i * TILE_SIZE, 0); ctx.lineTo(i * TILE_SIZE, CANVAS_SIZE); ctx.stroke();
+    }
+
+    // Zones
+    drawZone(P1_START, 'rgba(28, 126, 214, 0.15)');
+    drawZone(P1_TARGET, 'rgba(28, 126, 214, 0.4)');
+    drawZone(P2_START, 'rgba(224, 49, 49, 0.15)');
+    drawZone(P2_TARGET, 'rgba(224, 49, 49, 0.4)');
+    
+    // Safe Zone
+    ctx.fillStyle = '#ced4da';
+    ctx.fillRect(SAFE_ZONE.x * TILE_SIZE + 2, SAFE_ZONE.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    ctx.fillStyle = '#666'; ctx.font = '10px Arial'; ctx.textAlign = 'center';
+    ctx.fillText("SAFE", SAFE_ZONE.x * TILE_SIZE + TILE_SIZE/2, SAFE_ZONE.y * TILE_SIZE + TILE_SIZE/2 + 4);
+
+    // Draw Pending Move (Ghost)
+    if (gameState.pendingMove) {
+        const mx = gameState.pendingMove.x * TILE_SIZE;
+        const my = gameState.pendingMove.y * TILE_SIZE;
+        
+        ctx.fillStyle = COLORS.HIGHLIGHT;
+        ctx.fillRect(mx, my, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = COLORS.HIGHLIGHT_BORDER;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(mx+2, my+2, TILE_SIZE-4, TILE_SIZE-4);
+        
+        ctx.globalAlpha = 0.6;
+        drawPlayerModel(mx + TILE_SIZE/2, my + TILE_SIZE/2, gameState.pendingMove);
+        ctx.globalAlpha = 1.0;
+    }
+
+    // Actual Players
+    gameState.players.forEach(p => {
+        const cx = p.x * TILE_SIZE + TILE_SIZE/2;
+        const cy = p.y * TILE_SIZE + TILE_SIZE/2;
+        drawPlayerModel(cx, cy, p);
+    });
+}
+
+function drawZone(pt, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(pt.x * TILE_SIZE, pt.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+}
+
+function drawPlayerModel(cx, cy, p) {
+    const size = TILE_SIZE * 0.8;
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    ctx.fillStyle = p.color === 'blue' ? COLORS.BLUE : COLORS.RED;
+    ctx.fillRect(-size/2, -size/2, size, size);
+    
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-size/2, -size/2, size, size);
+
+    if (p.mirrored) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(-size/2+4, -size/2+4, size-8, size-8);
+        ctx.setLineDash([]);
+    }
+
+    drawVectorArrow(p.v1, size/2);
+    drawVectorArrow(p.v2, size/2);
+
+    ctx.restore();
+}
+
+function drawVectorArrow(v, len) {
+    const angle = Math.atan2(v.y, v.x);
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(-len/2, 0);
+    ctx.lineTo(len/2, 0);
+    ctx.lineTo(len/5, -len/5);
+    ctx.moveTo(len/2, 0);
+    ctx.lineTo(len/5, len/5);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+}
+
+// --- Helpers ---
+function updateUI() {
+    renderHand(0, 'hand-blue');
+    renderHand(1, 'hand-red');
+    
+    const statusEl = document.getElementById('status-display');
+    const swapBtn = document.getElementById('swap-btn');
+    
+    const pName = gameState.currentPlayer === 0 ? gameState.playerNames.blue : gameState.playerNames.red;
+    
+    if(!gameState.pendingMove && !gameState.swapSelected) {
+        statusEl.innerText = `${pName}'s Turn`;
+        statusEl.style.backgroundColor = gameState.currentPlayer === 0 ? COLORS.BLUE : COLORS.RED;
+    }
+
+    if (gameState.swapSelected) {
+        swapBtn.innerText = "CONFIRM SWAP?";
+        swapBtn.classList.remove('danger');
+        swapBtn.classList.add('confirm');
+    } else {
+        swapBtn.innerText = "Replace All & Skip";
+        swapBtn.classList.remove('confirm');
+        swapBtn.classList.add('danger');
+    }
+
+    swapBtn.disabled = (gameState.mode === 'ai' && gameState.currentPlayer === 1);
+}
+
+function renderHand(pIdx, divId) {
+    const div = document.getElementById(divId);
+    div.innerHTML = '';
+    gameState.hands[pIdx].forEach((card, idx) => {
+        const el = document.createElement('div');
+        el.className = `card ${card.color} ${gameState.currentPlayer === pIdx && idx === gameState.selectedCardIdx ? 'selected' : ''}`;
+        
+        let txt = "";
+        
+        if (card.type === 'slide') txt = `Slide ${card.val}`;
+        else if (card.type === 'turn-cw') txt = `<span style="font-size:1.8rem;">&#8635;</span>`;
+        else if (card.type === 'turn-ccw') txt = `<span style="font-size:1.8rem;">&#8634;</span>`;
+        else if (card.type === 'flip') txt = `Flip`;
+        else if (card.type === 'flipslide') {
+            txt = `Flip &<br>Slide ${card.val}`;
+        }
+        
+        let typeLabel = "";
+        if(card.type === 'slide') typeLabel = "SLIDE";
+        else if(card.type === 'flip') typeLabel = "FLIP";
+        else if(card.type.includes('turn')) typeLabel = "TURN";
+        else if(card.type === 'flipslide') typeLabel = "FLIP & SLIDE";
+
+        el.innerHTML = `<div class="card-type">${typeLabel}</div>
+                        <div class="card-detail">${txt}</div>`;
+
+        if (gameState.mode === 'ai' && pIdx === 1) el.classList.add('disabled');
+        else if (pIdx !== gameState.currentPlayer) el.classList.add('disabled');
+        else el.onclick = () => selectCard(idx);
+        
+        div.appendChild(el);
+    });
+}
+
+function resetPlayer(idx) {
+    if (idx === 0) gameState.players[0] = { color: 'blue', x: P1_START.x, y: P1_START.y, mirrored: false, v1:{x:1,y:0}, v2:{x:0,y:-1} };
+    else gameState.players[1] = { color: 'red', x: P2_START.x, y: P2_START.y, mirrored: false, v1:{x:-1,y:0}, v2:{x:0,y:-1} };
+}
+
+function checkWin(pIdx) {
+    const p = gameState.players[pIdx];
+    const t = (pIdx === 0) ? P1_TARGET : P2_TARGET;
+    return (p.x === t.x && p.y === t.y);
+}
+
+// --- AI ---
+function aiTurn() {
+    const pIdx = 1;
+    const hand = gameState.hands[pIdx];
+    const player = gameState.players[pIdx];
+    const target = P2_TARGET;
+
+    let bestMove = null;
+    let bestScore = -9999;
+
+    hand.forEach((card, cIdx) => {
+        const final = applyTransform(player, card);
+
+        if (final.x >= 0 && final.x < BOARD_SIZE && final.y >= 0 && final.y < BOARD_SIZE) {
+            const opp = gameState.players[0];
+            const onOpp = (final.x === opp.x && final.y === opp.y);
+            const onSafe = (final.x === SAFE_ZONE.x && final.y === SAFE_ZONE.y);
+            
+            if (!(onOpp && onSafe)) {
+                let dist = Math.abs(final.x - target.x) + Math.abs(final.y - target.y);
+                let score = -dist * 10;
+                if (onOpp) score += 500; 
+                if (onSafe) score += 50;
+                if (score > bestScore) { 
+                    bestScore = score; 
+                    bestMove = { idx: cIdx, state: final }; 
+                }
+            }
+        }
+    });
+
+    if (bestMove) {
+        gameState.selectedCardIdx = bestMove.idx;
+        updateUI();
+        
+        gameState.pendingMove = bestMove.state;
+        render();
+        setTimeout(() => finishMove(bestMove.state), 800);
+    } else {
+        // AI Swaps
+        executeSwap();
+    }
+}
+</script>
+</body>
+</html>
