@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRAGEO - Complete</title>
+    <title>TRAGEO - Tournament Edition</title>
     <style>
         :root {
             --bg-color: #f0f4f8;
@@ -40,6 +40,19 @@
             box-sizing: border-box;
             z-index: 10;
         }
+
+        #score-board {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #555;
+            background: #f8f9fa;
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .score-val.blue { color: var(--p1-color); }
+        .score-val.red { color: var(--p2-color); }
 
         h1 { margin: 0; font-size: 1.4rem; color: #333; letter-spacing: 2px; }
 
@@ -212,7 +225,7 @@
             border-radius: 12px;
             text-align: center;
             box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            width: 300px;
+            width: 320px;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -253,6 +266,12 @@
             box-sizing: border-box;
             text-align: center;
         }
+
+        input[type="text"]:disabled {
+            background-color: #e9ecef;
+            color: #666;
+            cursor: not-allowed;
+        }
         
         select {
             padding: 10px;
@@ -261,10 +280,15 @@
             font-size: 1rem;
             width: 100%;
             box-sizing: border-box;
+            background: white;
         }
 
         .p1-label { color: var(--p1-color); font-weight: bold; text-align: left; margin-bottom: -10px; font-size: 0.9rem; }
         .p2-label { color: var(--p2-color); font-weight: bold; text-align: left; margin-bottom: -10px; font-size: 0.9rem; }
+        .label-text { font-weight: bold; text-align: left; margin-bottom: -10px; font-size: 0.9rem; color: #555; }
+
+        #round-score-detail { font-size: 1.5rem; font-weight: bold; color: #333; margin: 10px 0; }
+        #total-score-detail { font-size: 0.9rem; color: #666; }
 
     </style>
 </head>
@@ -274,18 +298,26 @@
         <div class="modal-box">
             <div class="modal-title">TRAGEO</div>
             
-            <div class="p1-label">Blue Player Name</div>
+            <div class="p1-label">Blue Player</div>
             <input type="text" id="p1-name" value="Player 1" placeholder="Blue Name">
             
-            <div class="p2-label">Red Player Name</div>
+            <div class="p2-label">Red Player</div>
             <input type="text" id="p2-name" value="Player 2" placeholder="Red Name">
             
-            <select id="start-mode">
+            <div class="label-text">Opponent</div>
+            <select id="start-mode" onchange="toggleAIInput()">
                 <option value="pvp">Player vs Player</option>
                 <option value="ai">Player vs Computer</option>
             </select>
             
-            <button class="btn" style="background: #228be6; margin-top:10px;" onclick="startGame()">START GAME</button>
+            <div class="label-text">Winning Condition</div>
+            <select id="match-goal">
+                <option value="single">Single Round</option>
+                <option value="20" selected>First to 20 Points</option>
+                <option value="unlimited">Unlimited Play</option>
+            </select>
+
+            <button class="btn" style="background: #228be6; margin-top:10px;" onclick="startGame()">START MATCH</button>
         </div>
     </div>
 
@@ -294,8 +326,15 @@
             <div class="modal-title">How to Play</div>
             <div class="scroll-area">
                 <h3>Objective</h3>
-                <p>Move your shape from your starting corner to the diagonal opposite corner. The first player to land exactly on the target square wins.</p>
+                <p>Move your shape from your starting corner to the diagonal opposite corner. The first player to land exactly on the target square wins the round.</p>
                 
+                <h3>Scoring</h3>
+                <ul>
+                    <li><strong>Round Winner:</strong> Scores points based on how far the loser is from their target.</li>
+                    <li><strong>Calculation:</strong> Points = (Loser's Distance X + Loser's Distance Y). This is the "City Block" distance.</li>
+                    <li><strong>Maximum:</strong> 20 points per round.</li>
+                </ul>
+
                 <h3>Movement Cards</h3>
                 <ul>
                     <li><strong>SLIDE:</strong> Move 1, 2, or 3 spaces. Blue cards move vertically in the direction of the arrow an the shape; Red cards move horizontally in the direction of the arrow on the shape.</li>
@@ -333,16 +372,28 @@
     <div id="end-modal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-title" id="winner-text">BLUE WINS!</div>
-            <div style="font-size: 1.1rem; color:#666; margin-bottom: 20px;">The geometry was in your favour.</div>
-            <button class="btn" onclick="restartMatch()">NEW GAME</button>
-            <button class="btn" style="background: #868e96;" onclick="showStartScreen()">CHANGE SETUP</button>
+            <div id="round-score-detail">+0 Points</div>
+            <div id="total-score-detail">Total Score: 0 - 0</div>
+            
+            <div style="font-size: 1.0rem; color:#666; margin-bottom: 10px; margin-top:10px;">
+                <span id="win-message">The geometry was in your favour.</span>
+            </div>
+            
+            <button class="btn" id="next-round-btn" onclick="startNextRound()" style="background: #228be6;">NEXT ROUND</button>
+            <button class="btn" id="new-match-btn" onclick="showStartScreen()" style="background: #868e96;">CHANGE SETUP</button>
         </div>
     </div>
 
     <div id="top-bar">
         <h1>TRAGEO</h1>
+        
+        <div id="score-board">
+            <span class="score-val blue" id="sb-blue">Blue: 0</span> &nbsp;|&nbsp; 
+            <span class="score-val red" id="sb-red">Red: 0</span>
+        </div>
+
         <div style="display: flex; gap: 10px;">
-            <button class="btn" style="background: #228be6;" onclick="document.getElementById('help-modal').style.display='flex'">How to Play</button>
+            <button class="btn" style="background: #228be6;" onclick="document.getElementById('help-modal').style.display='flex'">Rules</button>
             <button class="btn" onclick="showStartScreen()">Reset</button>
         </div>
     </div>
@@ -369,7 +420,7 @@
 
 <script>
 /**
- * TRAGEO ENGINE - v9 (Complete with Terms)
+ * TRAGEO ENGINE - v10 (Scoring Update)
  */
 
 // --- Config ---
@@ -397,6 +448,8 @@ const COLORS = {
 let gameState = {
     playerNames: { blue: "Player 1", red: "Player 2" },
     players: [],
+    scores: [0, 0], // [Blue, Red]
+    matchGoal: 20, // 'single', number, or 'unlimited'
     currentPlayer: 0, 
     deck: [],
     hands: [[], []],
@@ -414,6 +467,18 @@ canvas.height = CANVAS_SIZE;
 
 // --- Setup & Menus ---
 
+function toggleAIInput() {
+    const mode = document.getElementById('start-mode').value;
+    const p2Input = document.getElementById('p2-name');
+    if (mode === 'ai') {
+        p2Input.value = "Computer";
+        p2Input.disabled = true;
+    } else {
+        if(p2Input.value === "Computer") p2Input.value = "Player 2";
+        p2Input.disabled = false;
+    }
+}
+
 function showStartScreen() {
     document.getElementById('end-modal').style.display = 'none';
     document.getElementById('start-modal').style.display = 'flex';
@@ -423,33 +488,41 @@ function startGame() {
     let p1Name = document.getElementById('p1-name').value.trim() || "Player 1";
     let p2Name = document.getElementById('p2-name').value.trim() || "Player 2";
     const mode = document.getElementById('start-mode').value;
+    const goalVal = document.getElementById('match-goal').value;
 
     if (mode === 'ai') {
-        p2Name += " (AI)";
+        p2Name = "Computer";
     }
 
     gameState.playerNames.blue = p1Name;
     gameState.playerNames.red = p2Name;
     gameState.mode = mode;
+    gameState.scores = [0, 0]; // Reset scores for new match
 
-    // Update Side Panels
+    if (goalVal === 'single') gameState.matchGoal = 'single';
+    else if (goalVal === 'unlimited') gameState.matchGoal = 'unlimited';
+    else gameState.matchGoal = parseInt(goalVal);
+
+    // Update Side Panels & Labels
     document.getElementById('p1-panel-name').innerText = p1Name;
     document.getElementById('p2-panel-name').innerText = p2Name;
+    document.getElementById('sb-blue').innerText = `${p1Name}: 0`;
+    document.getElementById('sb-red').innerText = `${p2Name}: 0`;
 
     document.getElementById('start-modal').style.display = 'none';
-    initGame();
+    initRound();
 }
 
-function restartMatch() {
+function startNextRound() {
     document.getElementById('end-modal').style.display = 'none';
-    initGame();
+    initRound();
 }
 
-function initGame() {
+function initRound() {
     gameState.deck = createDeck();
     shuffle(gameState.deck);
     gameState.hands = [[], []];
-    gameState.currentPlayer = 0;
+    gameState.currentPlayer = 0; // Blue always starts round
     gameState.selectedCardIdx = -1;
     gameState.pendingMove = null;
     gameState.swapSelected = false;
@@ -671,7 +744,7 @@ function finishMove(newState) {
     if (checkWin(pIdx)) {
         gameState.gameOver = true;
         render();
-        setTimeout(showWinScreen, 500);
+        handleRoundEnd(pIdx);
         return;
     }
 
@@ -729,14 +802,88 @@ function executeSwap() {
     if (gameState.mode === 'ai' && gameState.currentPlayer === 1) setTimeout(aiTurn, 1000);
 }
 
-function showWinScreen() {
-    const winnerName = gameState.currentPlayer === 0 ? gameState.playerNames.blue : gameState.playerNames.red;
-    const winnerColor = gameState.currentPlayer === 0 ? COLORS.BLUE : COLORS.RED;
+// --- Scoring and End Game ---
+
+function handleRoundEnd(winnerIdx) {
+    // 1. Calculate Score
+    // Loser is the other player
+    const loserIdx = (winnerIdx + 1) % 2;
+    const loser = gameState.players[loserIdx];
+    
+    // Loser's Target
+    const loserTarget = (loserIdx === 0) ? P1_TARGET : P2_TARGET;
+    
+    // City Block Distance
+    const score = Math.abs(loser.x - loserTarget.x) + Math.abs(loser.y - loserTarget.y);
+    
+    // Add to winner
+    gameState.scores[winnerIdx] += score;
+    
+    // Update Score Board
+    updateScoreBoard();
+    
+    // Determine Logic
+    let isMatchOver = false;
+    
+    if (gameState.matchGoal === 'single') {
+        isMatchOver = true;
+    } else if (typeof gameState.matchGoal === 'number') {
+        if (gameState.scores[winnerIdx] >= gameState.matchGoal) {
+            isMatchOver = true;
+        }
+    }
+    // 'unlimited' never sets isMatchOver to true automatically
+
+    setTimeout(() => showEndScreen(winnerIdx, score, isMatchOver), 500);
+}
+
+function updateScoreBoard() {
+    const p1 = gameState.playerNames.blue;
+    const p2 = gameState.playerNames.red;
+    const s1 = gameState.scores[0];
+    const s2 = gameState.scores[1];
+    
+    document.getElementById('sb-blue').innerText = `${p1}: ${s1}`;
+    document.getElementById('sb-red').innerText = `${p2}: ${s2}`;
+}
+
+function showEndScreen(winnerIdx, roundPoints, isMatchOver) {
+    const winnerName = winnerIdx === 0 ? gameState.playerNames.blue : gameState.playerNames.red;
+    const winnerColor = winnerIdx === 0 ? COLORS.BLUE : COLORS.RED;
     
     const title = document.getElementById('winner-text');
-    title.innerText = winnerName.toUpperCase() + " WINS!";
+    const roundDetail = document.getElementById('round-score-detail');
+    const totalDetail = document.getElementById('total-score-detail');
+    const msg = document.getElementById('win-message');
+    
+    const nextBtn = document.getElementById('next-round-btn');
+    const newBtn = document.getElementById('new-match-btn');
+    
     title.style.color = winnerColor;
     
+    if (isMatchOver) {
+        title.innerText = winnerName.toUpperCase() + " WINS MATCH!";
+        msg.innerText = "Target score reached!";
+        nextBtn.style.display = 'none';
+        newBtn.innerText = "NEW MATCH";
+        newBtn.style.background = "#228be6";
+    } else {
+        title.innerText = winnerName.toUpperCase() + " WINS ROUND!";
+        msg.innerText = "The geometry was in your favour.";
+        nextBtn.style.display = 'inline-block';
+        newBtn.innerText = "QUIT TO MENU";
+        newBtn.style.background = "#868e96";
+    }
+
+    roundDetail.innerText = `+${roundPoints} Points`;
+    roundDetail.style.color = winnerColor;
+    
+    const p1 = gameState.playerNames.blue;
+    const p2 = gameState.playerNames.red;
+    const s1 = gameState.scores[0];
+    const s2 = gameState.scores[1];
+    totalDetail.innerText = `Total Score: ${p1} (${s1}) - ${p2} (${s2})`;
+
     document.getElementById('end-modal').style.display = 'flex';
 }
 
